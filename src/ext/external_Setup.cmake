@@ -1,0 +1,34 @@
+#####SDL
+set(SDL2_INCLUDE_DIRS ${EXTERNAL_LIBRARIES_DIRECTORY_PATH}/SDL/include)
+set(SDL2_LIBDIR ${EXTERNAL_LIBRARIES_DIRECTORY_PATH}/SDL/lib)
+
+add_library(SDL2::SDL2 INTERFACE IMPORTED)
+set_target_properties(SDL2::SDL2 PROPERTIES
+INTERFACE_INCLUDE_DIRECTORIES "${SDL2_INCLUDE_DIRS}"
+INTERFACE_LINK_LIBRARIES "-L${SDL2_LIBDIR} -lSDL2")
+
+add_library(SDL2::SDL2main INTERFACE IMPORTED)
+
+set_target_properties(SDL2::SDL2main PROPERTIES
+INTERFACE_LINK_LIBRARIES "-L${SDL2_LIBDIR} -lmingw32 -lSDL2main")
+
+#####upng
+set(UPNG_INCLUDE_DIRS ${EXTERNAL_LIBRARIES_DIRECTORY_PATH}/upng/include)
+set(UPNG_LIBDIR ${EXTERNAL_LIBRARIES_DIRECTORY_PATH}/upng/lib)
+file(GLOB upng_src ${UPNG_LIBDIR}/*.c ${UPNG_INCLUDE_DIRS}/*.h)
+add_library(upng ${upng_src})
+target_include_directories(upng PUBLIC ${UPNG_INCLUDE_DIRS})
+
+#####glad
+set(GLAD_INCLUDE_DIRS ${EXTERNAL_LIBRARIES_DIRECTORY_PATH}/glad/include)
+set(GLAD_LIBDIR ${EXTERNAL_LIBRARIES_DIRECTORY_PATH}/glad/lib)
+file(GLOB glad_src ${GLAD_LIBDIR}/*.c ${GLAD_INCLUDE_DIRS}/*.h)
+add_library(glad ${glad_src})
+target_include_directories(glad PUBLIC ${GLAD_INCLUDE_DIRS})
+
+#####cglm
+set(CGLM_INCLUDE_DIRS ${EXTERNAL_LIBRARIES_DIRECTORY_PATH}/cglm/include)
+set(CGLM_LIBDIR ${EXTERNAL_LIBRARIES_DIRECTORY_PATH}/cglm/lib)
+file(GLOB cglm_src ${CGLM_LIBDIR}/*.c ${CGLM_INCLUDE_DIRS}/*.h)
+add_library(cglm ${cglm_src})
+target_include_directories(cglm PUBLIC ${CGLM_INCLUDE_DIRS})
