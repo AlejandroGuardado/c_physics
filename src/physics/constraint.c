@@ -67,9 +67,14 @@ static void presolve_joint(cwphysics_constraint *constraint, float dt){
     float j4 = 2.0f * glm_vec2_cross(rb, pb_minus_pa);
     *(cwphysics_matmn_fetch_p(&(constraint->jacobian), 0, 5)) = j4;
 
+    float c = glm_vec2_dot(pb_minus_pa, pb_minus_pa);
+    c = glm_max(0.0f, c - 0.01f);
+    const float beta = 0.2f / dt;
+    constraint->bias = beta * c;
+
     if(!constraint->is_lambda_cached) return;
 
-    // //Warm starting
+    //Warm starting
     cwphysics_matmn jacobian_t;
     cwphysics_matmn_transpose(&constraint->jacobian, &jacobian_t);
     cwphysics_vecn impulses;
@@ -86,11 +91,6 @@ static void presolve_joint(cwphysics_constraint *constraint, float dt){
 
     cwphysics_vecn_free(&impulses);
     cwphysics_matmn_free(&jacobian_t);
-
-    float c = glm_vec2_dot(pb_minus_pa, pb_minus_pa);
-    c = glm_max(0.0f, c - 0.01f);
-    const float beta = 0.2f / dt;
-    constraint->bias = beta * c;
 }
 
 static void solve_joint(cwphysics_constraint *constraint){
@@ -114,17 +114,12 @@ static void solve_joint(cwphysics_constraint *constraint){
 
     cwphysics_vecn lambda, impulses;
     cwphysics_matmn_solve_gauss_seidel(&lhs, &rhs, &lambda);
+    cwphysics_matmn_mul_vec(&jacobian_t, &lambda, &impulses);
     if(!constraint->is_lambda_cached){
         cwphysics_vecn_get(&constraint->cached_lambda, lambda.n);
         constraint->is_lambda_cached = true;
     }
-    cwphysics_vecn old_lambda;
-    cwphysics_vecn_copy(&constraint->cached_lambda, &old_lambda);
     cwphysics_vecn_add(&constraint->cached_lambda, &lambda, &constraint->cached_lambda);
-    float *lambda0 = cwphysics_vecn_fetch_p(&constraint->cached_lambda, 0);
-    *lambda0 = *lambda0 < 0.0f ? 0.0f : *lambda0;
-    cwphysics_vecn_sub(&constraint->cached_lambda, &old_lambda, &lambda);
-    cwphysics_matmn_mul_vec(&jacobian_t, &lambda, &impulses);
 
     vec2 impulse_linear_a = { cwphysics_vecn_fetch(&impulses, 0), cwphysics_vecn_fetch(&impulses, 1) };
     vec2 impulse_linear_b = { cwphysics_vecn_fetch(&impulses, 3), cwphysics_vecn_fetch(&impulses, 4) };
@@ -138,7 +133,6 @@ static void solve_joint(cwphysics_constraint *constraint){
     cwphysics_vecn_free(&rhs);
     cwphysics_vecn_free(&velocities);
     cwphysics_vecn_free(&lambda);
-    cwphysics_vecn_free(&old_lambda);
     cwphysics_vecn_free(&impulses);
     cwphysics_matmn_free(&inv_mass);
     cwphysics_matmn_free(&jacobian_t);
@@ -166,14 +160,21 @@ static void presolve_penetration(cwphysics_constraint *constraint, float dt){
     glm_vec2_negate_to(n, inv_n);
     *(cwphysics_matmn_fetch_p(&(constraint->jacobian), 0, 0)) = inv_n[0];
     *(cwphysics_matmn_fetch_p(&(constraint->jacobian), 0, 1)) = inv_n[1];
-    glm_vec2_negate(ra);
-    *(cwphysics_matmn_fetch_p(&(constraint->jacobian), 0, 2)) = glm_vec2_cross(ra, n);
+    // glm_vec2_negate(ra);
+    *(cwphysics_matmn_fetch_p(&(constraint->jacobian), 0, 2)) = -glm_vec2_cross(ra, n);
     *(cwphysics_matmn_fetch_p(&(constraint->jacobian), 0, 3)) = n[0];
     *(cwphysics_matmn_fetch_p(&(constraint->jacobian), 0, 4)) = n[1];
     *(cwphysics_matmn_fetch_p(&(constraint->jacobian), 0, 5)) = glm_vec2_cross(rb, n);
 
+    vec2 pb_minus_pa;
+    glm_vec2_sub(pb, pa, pb_minus_pa);
+    float c = glm_vec2_dot(pb_minus_pa, inv_n);
+    c = glm_min(0.0f, c + 0.01f);
+    const float beta = 0.075f / dt;
+    constraint->bias = beta * c;
+
     if(!constraint->is_lambda_cached) return;
-   
+
     //Warm starting
     cwphysics_matmn jacobian_t;
     cwphysics_matmn_transpose(&constraint->jacobian, &jacobian_t);
@@ -188,16 +189,9 @@ static void presolve_penetration(cwphysics_constraint *constraint, float dt){
     cwphysics_body_apply_impulse_linear(constraint->body_b, impulse_linear_b);
     cwphysics_body_apply_impulse_angular(constraint->body_a, angular_impulse_a);
     cwphysics_body_apply_impulse_angular(constraint->body_b, angular_impulse_b);
-
+    
     cwphysics_vecn_free(&impulses);
     cwphysics_matmn_free(&jacobian_t);
-
-    vec2 pb_minus_pa;
-    glm_vec2_sub(pb, pa, pb_minus_pa);
-    float c = glm_vec2_dot(pb_minus_pa, inv_n);
-    c = glm_max(0.0f, c - 0.01f);
-    const float beta = 0.2f / dt;
-    constraint->bias = beta * c;
 }
 
 static void solve_penetration(cwphysics_constraint *constraint){
@@ -221,15 +215,13 @@ static void solve_penetration(cwphysics_constraint *constraint){
 
     cwphysics_vecn lambda, impulses;
     cwphysics_matmn_solve_gauss_seidel(&lhs, &rhs, &lambda);
-    cwphysics_matmn_mul_vec(&jacobian_t, &lambda, &impulses);
     if(!constraint->is_lambda_cached){
         cwphysics_vecn_get(&constraint->cached_lambda, lambda.n);
-        constraint->is_lambda_cached = true;   
+        constraint->is_lambda_cached = true;
     }
     cwphysics_vecn old_lambda;
-    cwphysics_vecn_copy(&(constraint->cached_lambda), &old_lambda);
+    cwphysics_vecn_copy(&constraint->cached_lambda, &old_lambda);
     cwphysics_vecn_add(&constraint->cached_lambda, &lambda, &constraint->cached_lambda);
-
     float *lambda0 = cwphysics_vecn_fetch_p(&constraint->cached_lambda, 0);
     *lambda0 = *lambda0 < 0.0f ? 0.0f : *lambda0;
     cwphysics_vecn_sub(&constraint->cached_lambda, &old_lambda, &lambda);
@@ -300,8 +292,5 @@ void cwphysics_constraint_postsolve(cwphysics_constraint *constraint){
 
 void cwphysics_constraint_free(cwphysics_constraint *constraint){
     cwphysics_matmn_free(&constraint->jacobian);
-    if(constraint->is_lambda_cached){
-        cwphysics_vecn_free(&constraint->cached_lambda);
-        constraint->is_lambda_cached = false;
-    }
+    if(constraint->is_lambda_cached) cwphysics_vecn_free(&constraint->cached_lambda);
 }

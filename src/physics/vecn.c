@@ -1,5 +1,4 @@
 #include "vecn.h"
-#include <stdio.h>
 
 void cwphysics_vecn_get(cwphysics_vecn *v, int n){
     if(n <= 0) n = 1;

@@ -28,7 +28,6 @@ vec2 mouse_position;
 bool is_running = false;
 bool is_debug = false;
 
-cwphysics_body *test;
 cwphysics_world *world;
 texture_t crate_texture;
 // texture_t basketball_texture;
@@ -55,67 +54,29 @@ bool setup(void){
     cwphysics_body_def def;
 
     vec2 pos = { 0.0f, 0.0f };
-    cwphysics_shape *box;
-    // cwphysics_shape_get_box(&box, HORIZONTAL_UNITS - 0.01f, 1.0f);
-    // pos[1] = -VERTICAL_UNITS / 2.0f + 0.5f;
-    // def.shape = box;
-    // glm_vec2_copy(pos, def.position);
-    // def.mass = 0.0f;
-    // cwphysics_world_add_body(world, &b, &def);
-    // b->restitution = 0.8f;
-    // b->friction = 0.9f;
     
-    // cwphysics_shape_get_box(&box, 1.0f, VERTICAL_UNITS - 1.01f);
-    // pos[0] = -HORIZONTAL_UNITS / 2.0f + 0.5f;
-    // pos[1] = 0.5f;
-    // def.shape = box;
-    // glm_vec2_copy(pos, def.position);
-    // def.mass = 0.0f;
-    // cwphysics_world_add_body(world, &b, &def);
-    // b->restitution = 0.8f;
-    // b->friction = 0.9f;
-
-    // cwphysics_shape_get_box(&box, 1.0f, VERTICAL_UNITS - 1.01f);
-    // pos[0] = HORIZONTAL_UNITS / 2.0f - 0.5f;
-    // pos[1] = 0.5f;
-    // def.shape = box;
-    // glm_vec2_copy(pos, def.position);
-    // def.mass = 0.0f;
-    // cwphysics_world_add_body(world, &b, &def);
-    // b->restitution = 0.8f;
-    // b->friction = 0.9f;
-
-    
-
-    // cwphysics_body *body;
-    // cwphysics_shape *circle_2;
-    // cwphysics_shape_get_circle(&circle_2, 3.0f);
-    // def.shape = circle_2;
-    // pos[0] = 0.0f;
-    // pos[1] = 0.0f;
-    // glm_vec2_copy(pos, def.position);
-    // def.mass = 0.0f;
-    // cwphysics_world_add_body(world, &body, &def);
-
     cwphysics_body *body;
+    cwphysics_shape *circle_2;
+    cwphysics_shape_get_circle(&circle_2, 3.0f);
+    def.shape = circle_2;
     pos[0] = 0.0f;
     pos[1] = 0.0f;
-    cwphysics_shape_get_box(&box, 2.5f, 2.5f);
-    def.shape = box;
     glm_vec2_copy(pos, def.position);
     def.mass = 0.0f;
     cwphysics_world_add_body(world, &body, &def);
-    body->rotation = 1.4f;
-    body->restitution = 0.8f;
-    body->friction = 1.0f;
 
-    //Uncomment this and mouse_position code at update to move circle with mouse
-    // cwphysics_shape *circle;
-    // cwphysics_shape_get_circle(&circle, 1.0f);
-    // def.shape = circle;
+    // cwphysics_body *body;
+    // cwphysics_shape *box;
+    // pos[0] = 0.0f;
+    // pos[1] = 0.0f;
+    // cwphysics_shape_get_box(&box, 2.5f, 2.5f);
+    // def.shape = box;
     // glm_vec2_copy(pos, def.position);
-    // def.mass = 1.0f;
-    // cwphysics_world_add_body(world, &test, &def);
+    // def.mass = 0.0f;
+    // cwphysics_world_add_body(world, &body, &def);
+    // body->rotation = 1.4f;
+    // body->restitution = 0.8f;
+    // body->friction = 1.0f;
 
     return true;
 }
@@ -142,7 +103,6 @@ void process_input(void){
             }
             break;
         case SDL_MOUSEBUTTONDOWN:
-
             //Spawn circle
 
             // cwphysics_shape *circle;
@@ -296,16 +256,14 @@ static void render_contact(cwphysics_contact *contact){
     vec2 tangent = { -contact->normal[1], contact->normal[0] };
     vec3 start_pos = { contact->start[0], contact->start[1], 1.0f };
     cwcircle_draw(start_pos, 0.1f, color, 1.0f, 0.0f, viewMatrix, projectionMatrix);
-
     vec3 end_pos;
+    // glm_vec2_scale(tangent, contact.impulse_tangent_magnitude, tangent);
     glm_vec2_add(start_pos, tangent, end_pos);
     color[2] = 0.0f;
     cwline_draw(start_pos, end_pos, color, 2.0f, viewMatrix, projectionMatrix);
     glm_vec2_add(start_pos, contact->normal, end_pos);
     color[0] = 0.0f;
     cwline_draw(start_pos, end_pos, color, 2.0f, viewMatrix, projectionMatrix);
-
-    end_pos[2] = 2.0f;
     glm_vec2_copy(contact->end, end_pos);
     color[0] = 1.0f;
     color[1] = 0.0f;
@@ -335,6 +293,7 @@ void render(void){
     cwphysics_world_iterate_bodies(world, draw_body);
     if(is_debug) {
         cwphysics_world_iterate_contacts(world, render_contact);
+        cwphysics_world_iterate_constraints(world, render_constraint);
     }
 
     swap_window();

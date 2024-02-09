@@ -117,8 +117,8 @@ bool cwphysics_collision_is_colliding_circle_polygon(cwphysics_body *circle, cwp
             break;
         }
     }
-    contact->body_a = circle;
-    contact->body_b = polygon;
+    contact->body_a = polygon;
+    contact->body_b = circle;
 
     //Projected point on edge (end position)
     vec2 current_to_circle;
@@ -145,15 +145,15 @@ bool cwphysics_collision_is_colliding_circle_polygon(cwphysics_body *circle, cwp
     glm_vec2_add(contact->end, circle->position, contact->end);
     contact->depth = glm_vec2_distance(contact->end, contact->start);
 
-    vec2 aux;
-    glm_vec2_copy(contact->start, aux);
-    glm_vec2_copy(contact->end, contact->start);
-    glm_vec2_copy(aux, contact->end);
-
     if(isOutside){
         float dist2 = glm_vec2_norm2(start_to_circle);
-        if(dist2 > circle_data->radius * circle_data->radius) return false;
+        if(dist2 > circle_data->radius * circle_data->radius) return false;   
     }
+
+    // vec2 aux;
+    // glm_vec2_copy(contact->start, aux);
+    // glm_vec2_copy(contact->end, contact->start);
+    // glm_vec2_copy(aux, contact->end);
 
     return true;
 }
