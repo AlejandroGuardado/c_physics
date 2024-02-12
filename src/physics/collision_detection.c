@@ -150,10 +150,10 @@ bool cwphysics_collision_is_colliding_circle_polygon(cwphysics_body *circle, cwp
         if(dist2 > circle_data->radius * circle_data->radius) return false;   
     }
 
-    // vec2 aux;
-    // glm_vec2_copy(contact->start, aux);
-    // glm_vec2_copy(contact->end, contact->start);
-    // glm_vec2_copy(aux, contact->end);
+    vec2 aux;
+    glm_vec2_copy(contact->start, aux);
+    glm_vec2_copy(contact->end, contact->start);
+    glm_vec2_copy(aux, contact->end);
 
     return true;
 }

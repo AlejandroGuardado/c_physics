@@ -12,13 +12,14 @@ void cwphysics_constraint_set_as_joint(cwphysics_constraint *constraint, cwphysi
 
 void cwphysics_constraint_set_as_penetration(cwphysics_constraint *constraint, cwphysics_body *body_a, cwphysics_body *body_b, vec2 point_a, vec2 point_b, vec2 normal){
     constraint->type = PENETRATION;
-    cwphysics_matmn_get(&constraint->jacobian, 1, 6);
+    cwphysics_matmn_get(&constraint->jacobian, 2, 6);
     constraint->body_a = body_a;
     constraint->body_b = body_b;
     cwphysics_body_world_to_local(body_a, point_a, constraint->point_a);
     cwphysics_body_world_to_local(body_b, point_b, constraint->point_b);
     cwphysics_body_world_to_local(body_a, normal, constraint->normal);
     constraint->is_lambda_cached = false;
+    constraint->friction = 0.0f;
 }
 
 void cwphysics_constraint_get_inverse_mass(cwphysics_constraint *constraint, cwphysics_matmn* inv_mass){
@@ -160,18 +161,46 @@ static void presolve_penetration(cwphysics_constraint *constraint, float dt){
     glm_vec2_negate_to(n, inv_n);
     *(cwphysics_matmn_fetch_p(&(constraint->jacobian), 0, 0)) = inv_n[0];
     *(cwphysics_matmn_fetch_p(&(constraint->jacobian), 0, 1)) = inv_n[1];
-    // glm_vec2_negate(ra);
-    *(cwphysics_matmn_fetch_p(&(constraint->jacobian), 0, 2)) = -glm_vec2_cross(ra, n);
+    glm_vec2_negate(ra);
+    *(cwphysics_matmn_fetch_p(&(constraint->jacobian), 0, 2)) = glm_vec2_cross(ra, n);
     *(cwphysics_matmn_fetch_p(&(constraint->jacobian), 0, 3)) = n[0];
     *(cwphysics_matmn_fetch_p(&(constraint->jacobian), 0, 4)) = n[1];
     *(cwphysics_matmn_fetch_p(&(constraint->jacobian), 0, 5)) = glm_vec2_cross(rb, n);
+
+    constraint->friction = glm_max(constraint->body_a->friction, constraint->body_b->friction);
+    if(constraint->friction > 0.0f){
+        vec2 t = { -n[1], n[0] };
+        glm_vec2_normalize(t);
+        vec2 inv_t;
+        glm_vec2_negate_to(t, inv_t);
+        *(cwphysics_matmn_fetch_p(&(constraint->jacobian), 1, 0)) = inv_t[0];
+        *(cwphysics_matmn_fetch_p(&(constraint->jacobian), 1, 1)) = inv_t[1];
+        *(cwphysics_matmn_fetch_p(&(constraint->jacobian), 1, 2)) = glm_vec2_cross(ra, t);
+        *(cwphysics_matmn_fetch_p(&(constraint->jacobian), 1, 3)) = t[0];
+        *(cwphysics_matmn_fetch_p(&(constraint->jacobian), 1, 4)) = t[1];
+        *(cwphysics_matmn_fetch_p(&(constraint->jacobian), 1, 5)) = glm_vec2_cross(rb, t);
+    }
+
+    vec2 va, vb;
+    glm_vec2_copy(constraint->body_a->velocity, va);
+    glm_vec2_copy(constraint->body_b->velocity, vb);
+    //Cross product between r and w (z-axis)
+    vec2 angular_a = { -constraint->body_a->angularVelocity * ra[1], constraint->body_a->angularVelocity * ra[0] };
+    vec2 angular_b = { -constraint->body_b->angularVelocity * rb[1], constraint->body_b->angularVelocity * rb[0] };
+    glm_vec2_add(va, angular_a, va);
+    glm_vec2_add(vb, angular_b, vb);
+    vec2 vrel;
+    glm_vec2_sub(va, vb, vrel);
+    float vrel_dot_normal = glm_vec2_dot(vrel, n);
+    float e = glm_min(constraint->body_a->restitution, constraint->body_b->restitution);
 
     vec2 pb_minus_pa;
     glm_vec2_sub(pb, pa, pb_minus_pa);
     float c = glm_vec2_dot(pb_minus_pa, inv_n);
     c = glm_min(0.0f, c + 0.01f);
-    const float beta = 0.075f / dt;
+    const float beta = 0.2f / dt;
     constraint->bias = beta * c;
+    constraint->bias += e * vrel_dot_normal;
 
     if(!constraint->is_lambda_cached) return;
 
@@ -224,6 +253,13 @@ static void solve_penetration(cwphysics_constraint *constraint){
     cwphysics_vecn_add(&constraint->cached_lambda, &lambda, &constraint->cached_lambda);
     float *lambda0 = cwphysics_vecn_fetch_p(&constraint->cached_lambda, 0);
     *lambda0 = *lambda0 < 0.0f ? 0.0f : *lambda0;
+
+    if(constraint->friction > 0.0f){
+        float *lambda1 = cwphysics_vecn_fetch_p(&constraint->cached_lambda, 1);
+        const float max_friction = *lambda0 * constraint->friction;
+        *lambda1 = glm_clamp(*lambda1, -max_friction, max_friction);
+    }
+
     cwphysics_vecn_sub(&constraint->cached_lambda, &old_lambda, &lambda);
     cwphysics_matmn_mul_vec(&jacobian_t, &lambda, &impulses);
 

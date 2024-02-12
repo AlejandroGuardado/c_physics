@@ -21,6 +21,7 @@ typedef struct{
     vec2 point_a;
     vec2 point_b;
     vec2 normal;
+    float friction;
     cwphysics_vecn cached_lambda;
     float bias;
     bool is_lambda_cached;
